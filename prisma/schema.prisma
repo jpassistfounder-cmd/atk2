@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -33,7 +30,7 @@ model Candle {
   id        String   @id @default(cuid())
   symbol    String
   market    Market   @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
-  timeframe String   // 1m, 5m, 15m, 1h, 4h, 1d
+  timeframe String
   openTime  DateTime
   closeTime DateTime
   open      Float
@@ -72,14 +69,14 @@ model Position {
   market    Market   @relation(fields: [symbol], references: [symbol], onDelete: Restrict)
   account   PaperAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId String
-  side      String   // LONG or SHORT
+  side      String
   quantity  Float
   entryPrice Float
   currentPrice Float
   leverage  Int      @default(1)
   marginUsed Float
   unrealizedPnL Float @default(0)
-  status    String   @default("OPEN") // OPEN, CLOSING, CLOSED
+  status    String   @default("OPEN")
   openedAt  DateTime @default(now())
   closedAt  DateTime?
   createdAt DateTime @default(now())
@@ -100,11 +97,11 @@ model Order {
   accountId String
   position  Position? @relation(fields: [positionId], references: [id], onDelete: Set Null)
   positionId String?
-  side      String   // BUY or SELL
+  side      String
   quantity  Float
   price     Float
-  orderType String   @default("LIMIT") // LIMIT, MARKET, STOP_LOSS, TAKE_PROFIT
-  status    String   @default("PENDING") // PENDING, FILLED, CANCELLED, REJECTED
+  orderType String   @default("LIMIT")
+  status    String   @default("PENDING")
   filledQuantity Float @default(0)
   filledPrice Float?
   createdAt DateTime @default(now())
@@ -135,7 +132,7 @@ model Exit {
   id        String   @id @default(cuid())
   position  Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
   positionId String
-  reason    String   // TAKE_PROFIT, STOP_LOSS, MANUAL, LIQUIDATION
+  reason    String
   exitPrice Float
   exitQuantity Float
   timestamp DateTime @default(now())
@@ -147,10 +144,10 @@ model Signal {
   id        String   @id @default(cuid())
   symbol    String
   market    Market   @relation(fields: [symbol], references: [symbol], onDelete: Cascade)
-  engine    String   // STRUCTURE, VOLUME, MOMENTUM, DERIVATIVES, LIQUIDITY
-  side      String   // LONG or SHORT
-  strength  Float    // 0-1
-  confidence Float   // 0-1
+  engine    String
+  side      String
+  strength  Float
+  confidence Float
   timestamp DateTime @default(now())
 
   traces   SignalTrace[]
@@ -172,7 +169,7 @@ model DecisionTrace {
   symbol    String
   timestamp DateTime @default(now())
   signals   Json
-  decision  String   // ENTER_LONG, ENTER_SHORT, EXIT, HOLD
+  decision  String
   confidence Float
   reasoning Json
   createdAt DateTime @default(now())
@@ -185,13 +182,13 @@ model Outcome {
   account   PaperAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountId String
   symbol    String
-  side      String   // LONG or SHORT
+  side      String
   entry     Float
   exit      Float
   quantity  Float
   pnl       Float
   pnlPercent Float
-  duration  Int      // in seconds
+  duration  Int
   timestamp DateTime @default(now())
 
   @@index([accountId, timestamp])
