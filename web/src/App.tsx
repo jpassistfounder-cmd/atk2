@@ -1,83 +1,120 @@
-import React, { useEffect, useState } from 'react';
-import { useStore } from './store/useStore';
-import Dashboard from './pages/Dashboard';
-import Scanner from './pages/Scanner';
-import PositionManager from './pages/PositionManager';
-import Analytics from './pages/Analytics';
+import React, { useEffect } from 'react';
+import { Dashboard } from './pages/Dashboard';
+import { Watchlist } from './pages/Watchlist';
+import { PositionManager } from './pages/PositionManager';
+import { Analytics } from './pages/Analytics';
+import { useATKStore } from './store/atk.store';
+import './App.css';
 
-const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<'dashboard' | 'scanner' | 'positions' | 'analytics'>('dashboard');
-  const [isLoading, setIsLoading] = useState(true);
+type Page = 'dashboard' | 'watchlist' | 'positions' | 'analytics';
+
+function App() {
+  const [currentPage, setCurrentPage] = React.useState<Page>('dashboard');
+  const { account, setAccount, setHealth } = useATKStore();
 
   useEffect(() => {
-    // Initialize app
-    const init = async () => {
+    // Check server health
+    const checkHealth = async () => {
       try {
-        // Fetch initial data
-        setIsLoading(false);
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        setHealth(data);
       } catch (error) {
-        console.error('Failed to initialize app:', error);
+        console.error('Health check failed:', error);
       }
     };
-    init();
-  }, []);
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000);
+    return () => clearInterval(interval);
+  }, [setHealth]);
+
+  // Create demo account on load
+  useEffect(() => {
+    if (!account) {
+      const demoAccount = {
+        id: 'demo-account-1',
+        name: 'Demo Account',
+        balance: 10000,
+        usedMargin: 0,
+        availableMargin: 10000,
+      };
+      setAccount(demoAccount);
+    }
+  }, [account, setAccount]);
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'watchlist':
+        return <Watchlist />;
+      case 'positions':
+        return <PositionManager />;
+      case 'analytics':
+        return <Analytics />;
+      default:
+        return <Dashboard />;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-blue-400">🤖 ATK - Autonomous Trading Kernel</h1>
-          <nav className="flex gap-4">
+    <div className="flex h-screen bg-gray-900">
+      {/* Sidebar */}
+      <div className="w-64 bg-gray-800 text-white border-r border-gray-700">
+        <div className="p-6">
+          <h1 className="text-2xl font-bold mb-8">ATK</h1>
+          <nav className="space-y-2">
             <button
               onClick={() => setCurrentPage('dashboard')}
-              className={`px-4 py-2 rounded ${
-                currentPage === 'dashboard' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+              className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition ${
+                currentPage === 'dashboard'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-700'
               }`}
             >
-              Dashboard
+              🏠 Dashboard
             </button>
             <button
-              onClick={() => setCurrentPage('scanner')}
-              className={`px-4 py-2 rounded ${
-                currentPage === 'scanner' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+              onClick={() => setCurrentPage('watchlist')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition ${
+                currentPage === 'watchlist'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-700'
               }`}
             >
-              Scanner
+              👁️ Watchlist
             </button>
             <button
               onClick={() => setCurrentPage('positions')}
-              className={`px-4 py-2 rounded ${
-                currentPage === 'positions' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+              className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition ${
+                currentPage === 'positions'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-700'
               }`}
             >
-              Positions
+              📊 Positions
             </button>
             <button
               onClick={() => setCurrentPage('analytics')}
-              className={`px-4 py-2 rounded ${
-                currentPage === 'analytics' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+              className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition ${
+                currentPage === 'analytics'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-700'
               }`}
             >
-              Analytics
+              📈 Analytics
             </button>
           </nav>
         </div>
-      </header>
+      </div>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto p-4">
-        {currentPage === 'dashboard' && <Dashboard />}
-        {currentPage === 'scanner' && <Scanner />}
-        {currentPage === 'positions' && <PositionManager />}
-        {currentPage === 'analytics' && <Analytics />}
-      </main>
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        {renderPage()}
+      </div>
     </div>
   );
-};
+}
 
 export default App;
