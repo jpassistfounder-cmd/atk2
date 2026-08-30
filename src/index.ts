@@ -1,58 +1,78 @@
-import express, { Express } from 'express';
-import cors from 'cors';
+import express, { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { BinanceFuturesGateway } from './services/binance.gateway';
 import { CanonicalRuntimeState } from './state/canonical-runtime-state';
-import { setupMarketRoutes } from './routes/market.routes';
-import { setupAccountRoutes } from './routes/account.routes';
-import { setupTradingRoutes } from './routes/trading.routes';
-import { setupAnalyticsRoutes } from './routes/analytics.routes';
-import { setupHealthRoutes } from './routes/health.routes';
+import { EventBus } from './state/event-bus';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
+// Import routes
+import { createAccountRoutes } from './routes/accounts.routes';
+import { createOrderRoutes } from './routes/orders.routes';
+import { createPositionRoutes } from './routes/positions.routes';
+import { createSignalRoutes } from './routes/signals.routes';
+import { createMarketRoutes } from './routes/markets.routes';
+import { createLearningRoutes } from './routes/learning.routes';
+
+dotenv.config();
+
+const app = express();
 const prisma = new PrismaClient();
-const app: Express = express();
 const port = process.env.PORT || 3000;
-
-// Initialize Binance gateway
-const binanceApiKey = process.env.BINANCE_API_KEY || '';
-const binanceApiSecret = process.env.BINANCE_API_SECRET || '';
-const binance = new BinanceFuturesGateway(binanceApiKey, binanceApiSecret);
-
-// Initialize runtime state
-const runtimeState = new CanonicalRuntimeState(prisma);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Initialize runtime state
-runtimeState.initialize().catch(error => {
-  console.error('Failed to initialize runtime state:', error);
-  process.exit(1);
+// Initialize services
+const binance = new BinanceFuturesGateway(
+  process.env.BINANCE_API_KEY || '',
+  process.env.BINANCE_API_SECRET || ''
+);
+const runtimeState = new CanonicalRuntimeState(prisma);
+const eventBus = new EventBus();
+
+// Health check
+app.get('/health', (req: Request, res: Response) => {
+  const health = runtimeState.getHealth();
+  res.json({ status: health.status, lastUpdate: health.lastUpdate });
 });
 
-// Routes
-app.use('/api', setupMarketRoutes(prisma, binance));
-app.use('/api', setupAccountRoutes(prisma));
-app.use('/api', setupTradingRoutes(prisma));
-app.use('/api', setupAnalyticsRoutes(prisma));
-app.use('/api', setupHealthRoutes(runtimeState));
+// State endpoint
+app.get('/state', (req: Request, res: Response) => {
+  res.json(runtimeState.getState());
+});
+
+// Register routes
+app.use('/api', createAccountRoutes(prisma));
+app.use('/api', createOrderRoutes(prisma));
+app.use('/api', createPositionRoutes(prisma));
+app.use('/api', createSignalRoutes(prisma, binance));
+app.use('/api', createMarketRoutes(prisma, binance));
+app.use('/api', createLearningRoutes(prisma));
 
 // Error handling
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal server error', message: err.message });
+app.use((err: any, req: Request, res: Response) => {
+  console.error('Error:', err);
+  runtimeState.setHealthStatus('DEGRADED', err.message);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`🚀 ATK Backend running on port ${port}`);
-  console.log(`📊 API: http://localhost:${port}/api`);
-});
+// Initialize and start
+async function start() {
+  try {
+    await runtimeState.initialize();
+    console.log('Runtime state initialized');
 
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('\n🛑 Shutting down...');
-  await prisma.$disconnect();
-  process.exit(0);
-});
+    app.listen(port, () => {
+      console.log(`ATK Server running on port ${port}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+start();
+
+export { app, prisma, binance, runtimeState, eventBus };
